@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+myenv
+.venv
+node_modules
+.web
+.states
+*.db
+*.log
+secret.key
+uploaded_files/
+docker-compose.yml
+Dockerfile
+.dockerignore

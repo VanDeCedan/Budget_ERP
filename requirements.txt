@@ -1,0 +1,9 @@
+reflex
+sqlmodel
+passlib
+bcrypt==4.0.1
+cryptography
+pandas
+openpyxl
+
+reflex==0.8.26

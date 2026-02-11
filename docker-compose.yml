@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+      - "3000:3000"
+    volumes:
+      - ./reflex.db:/app/reflex.db
+      - ./budget_erp.db:/app/budget_erp.db
+      - ./secret.key:/app/secret.key
+      - ./uploaded_files:/app/uploaded_files
+    environment:
+      - RA_ENV=production
+    restart: always
