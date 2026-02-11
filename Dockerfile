@@ -56,6 +56,7 @@ COPY --from=builder /app/venv /app/venv
 COPY --from=builder /app/.web /app/.web
 
 # Copy nginx config
+RUN rm /etc/nginx/sites-enabled/default
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Setup env
