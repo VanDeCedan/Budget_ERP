@@ -70,7 +70,15 @@ class AuthState(rx.State):
         self.reset()
         return rx.redirect("/login")
 
+    @rx.var
+    def has_users(self) -> bool:
+        with rx.session() as session:
+            count = session.exec(select(User)).first()
+            return count is not None
+
     def check_login(self):
+        if not self.has_users:
+            return  # Allow access to pages to create first user
         if self.current_user is None:
             return rx.redirect("/login")
 

@@ -156,35 +156,6 @@ class UserState(BaseState):
             return rx.window_alert("Please fill all fields.")
         
         with rx.session() as session:
-            # Check if mail exists (hash it first to compare)
-            # Note: Since hashing is salted, we can't just hash and compare equality easily for lookup 
-            # UNLESS we use deterministic hashing or check all (slow).
-            # The requirement says "mail... hashed" and "Index { mail }". 
-            # If we use bcrypt, it's randomized. We can't lookup by hash.
-            # User requirement implies deterministic hash or we need to rethink.
-            # Startups often use deterministic hash for lookup columns (like HMAC).
-            # standard passlib bcrypt is NOT deterministic.
-            # FOR THIS implementation, I will assume we can use the same hash for equality check (e.g. SHA256) 
-            # OR we just scan (bad for perf)
-            # OR we assume the requirement "mail varchar ... unique ... note: hashed" implies we need to be able to check uniqueness.
-            # I'll use a deterministic hash for the mail column to support unique index lookup.
-            # I'll use SHA256 for mail, and Bcrypt for password.
-            
-            # Correction: I'll use the security utils. 
-            # Update security.py to have deterministic hash? 
-            # For now, I'll use `get_password_hash` (bcrypt) which is WRONG for unique lookup.
-            # I will assume uniqueness check is done by trying to insert and catching error?
-            # But the user said "check if 'Mail' already registred and flag error".
-            # I will assume for this task I should use a deterministic hash for email.
-            
-            hashed_mail = get_password_hash(self.email) # This will be random each time with bcrypt!
-            # Issue: Cannot check uniqueness with bcrypt.
-            # Decision: I will use valid hashing for password, but for email I should use simple SHA if I want via-index lookup.
-            # However, `passlib` context `hash` is salted.
-            # I will accept this limitation for now and strictly follow "hashed".
-            # To check uniqueness, I'd have to load all users and check `verify_password(email, user.mail)`.
-            # This is slow but functional for small apps.
-            
             # Check uniqueness
             all_users = session.exec(select(User)).all()
             from ..utils.security import verify_password
@@ -193,16 +164,14 @@ class UserState(BaseState):
                     if verify_password(self.email, u.mail):
                          return rx.window_alert("Email already registered.")
                 except Exception:
-                    # Legacy support for plain-text emails
                     if self.email == u.mail:
                         return rx.window_alert("Email already registered.")
 
             # Create User
-            # current_user_id from BaseState. If None (not logged in), use 1 (system/admin default)
             created_by_id = self.current_user.id if self.current_user else 1 
             
             new_user = User(
-                mail=hashed_mail, 
+                mail=get_password_hash(self.email), 
                 password=get_password_hash(self.password),
                 name=encrypt_data(self.username),
                 role=self.role,
@@ -214,6 +183,29 @@ class UserState(BaseState):
             self.load_users()
             self.close_add_dialog()
             return rx.window_alert("User registered successfully.")
+
+    def create_first_user(self):
+        if not self.username or not self.email or not self.password:
+            return rx.window_alert("Please fill all fields.")
+
+        with rx.session() as session:
+            # Check if any user exists just in case
+            if session.exec(select(User)).first():
+                return rx.window_alert("Users already exist. Please login.")
+
+            new_user = User(
+                mail=get_password_hash(self.email),
+                password=get_password_hash(self.password),
+                name=encrypt_data(self.username),
+                role="admin",
+                created_by=1,
+                status="active"
+            )
+            session.add(new_user)
+            session.commit()
+            # Log in automatically
+            self.current_user = new_user
+            return rx.redirect("/")
 
     def update_user(self):
         with rx.session() as session:
