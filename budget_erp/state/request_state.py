@@ -128,29 +128,32 @@ class RequestState(BaseState):
     @rx.var
     def initial_sub_request_options(self) -> List[str]:
         # Returns list of active sub-requests for dropdown as "Object"
-        with rx.session() as session:
-            query = select(SubRequest).where(SubRequest.status == "active")
-            
-            if self.comp_filter_issuer:
-                # Find issuer_id
-                target_issuer_id = None
-                for i in self.issuers:
-                    try:
-                        if decrypt_data(i.name) == self.comp_filter_issuer:
-                            target_issuer_id = i.id
-                            break
-                    except:
-                        continue
+        try:
+            with rx.session() as session:
+                query = select(SubRequest).where(SubRequest.status == "active")
                 
-                if target_issuer_id:
-                    # Filter sub_requests by joined request issuer
-                    query = query.join(Request).where(Request.issuer_id == target_issuer_id)
-                else:
-                    # If issuer selected but not found (unlikely), return empty
-                    return []
+                if self.comp_filter_issuer:
+                    # Find issuer_id
+                    target_issuer_id = None
+                    for i in self.issuers:
+                        try:
+                            if decrypt_data(i.name) == self.comp_filter_issuer:
+                                target_issuer_id = i.id
+                                break
+                        except:
+                            continue
+                    
+                    if target_issuer_id:
+                        # Filter sub_requests by joined request issuer
+                        query = query.join(Request).where(Request.issuer_id == target_issuer_id)
+                    else:
+                        # If issuer selected but not found (unlikely), return empty
+                        return []
 
-            results = session.exec(query).all()
-            return [sr.object for sr in results if sr.object]
+                results = session.exec(query).all()
+                return [sr.object for sr in results if sr.object]
+        except Exception:
+            return []
 
     @rx.var
     def ptab_options(self) -> List[str]:

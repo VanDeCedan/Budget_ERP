@@ -63,37 +63,40 @@ class ReconciliationState(BaseState):
         if not self.issuer_name:
             return []
         
-        with rx.session() as session:
-            # 1. Find Issuer ID
-            actual_issuer_id = None
-            for i in self.issuers:
-                try:
-                    if decrypt_data(i.name) == self.issuer_name:
-                        actual_issuer_id = i.id
-                        break
-                except:
-                    continue
-            
-            if not actual_issuer_id:
-                return []
+        try:
+            with rx.session() as session:
+                # 1. Find Issuer ID
+                actual_issuer_id = None
+                for i in self.issuers:
+                    try:
+                        if decrypt_data(i.name) == self.issuer_name:
+                            actual_issuer_id = i.id
+                            break
+                    except:
+                        continue
                 
-            # 2. Get Requests for this Issuer
-            requests = session.exec(select(Request).where(Request.issuer_id == actual_issuer_id)).all()
-            if not requests:
-                return []
+                if not actual_issuer_id:
+                    return []
+                    
+                # 2. Get Requests for this Issuer
+                requests = session.exec(select(Request).where(Request.issuer_id == actual_issuer_id)).all()
+                if not requests:
+                    return []
+                    
+                req_ids = [r.id for r in requests]
                 
-            req_ids = [r.id for r in requests]
-            
-            # 3. Get Initial SubRequests for these Requests
-            sub_requests = session.exec(
-                select(SubRequest).where(
-                    SubRequest.req_id.in_(req_ids),
-                    SubRequest.sub_request_type == "initial",
-                    SubRequest.status == "active"
-                )
-            ).all()
-            
-            return [sr.object for sr in sub_requests if sr.object]
+                # 3. Get Initial SubRequests for these Requests
+                sub_requests = session.exec(
+                    select(SubRequest).where(
+                        SubRequest.req_id.in_(req_ids),
+                        SubRequest.sub_request_type == "initial",
+                        SubRequest.status == "active"
+                    )
+                ).all()
+                
+                return [sr.object for sr in sub_requests if sr.object]
+        except Exception:
+            return []
 
     def set_type_recon(self, value: str):
         self.type_recon = value
