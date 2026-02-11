@@ -74,19 +74,20 @@ class AuthState(rx.State):
     def has_users(self) -> bool:
         try:
             with rx.session() as session:
-                # Use a simple select to check if table exists and has entries
+                # If the table doesn't exist, this will throw an exception
                 user = session.exec(select(User)).first()
                 return user is not None
         except Exception:
-            # During 'reflex export', the database might not be initialized yet.
-            # Returning True here is a safe default that ensures the UI is compiled
-            # with the logic that users MIGHT exist (preventing unexpected setup screens during static build).
-            # When the app actually runs, it will re-evaluate this correctly.
-            return True
+            # During 'reflex export' or first run before 'reflex db init', 
+            # we assume no users exist yet.
+            return False
 
     def check_login(self):
+        # Case 1: No users in DB -> Forced to Setup (via /login)
         if not self.has_users:
-            return  # Allow access to pages to create first user
+            return rx.redirect("/login")
+            
+        # Case 2: Users exist but not logged in -> Normal login
         if self.current_user is None:
             return rx.redirect("/login")
 
