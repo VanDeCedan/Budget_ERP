@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Initialize the database (creates tables if they don't exist)
+reflex db init
+reflex db migrate
+
 # Start the Reflex backend on port 8001
 # We use --port 8001 to move it away from Nginx's port
 reflex run --env prod --backend-only --loglevel info --backend-port 8001 &
