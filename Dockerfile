@@ -26,37 +26,44 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Initialize Reflex (this installs frontend packages into .web)
+# Initialize Reflex
 RUN reflex init
+
+# Export frontend static assets
+RUN reflex export --frontend-only --no-zip
 
 # Stage 2: Final Image
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Node.js in the final image as well if needed for runtime (though Reflex production build might only need it for build)
+# Port used by Nginx (Frontend & Proxy)
+EXPOSE 8000
+
+# Install Nginx and cleanup
 RUN apt-get update && apt-get install -y \
     curl \
+    nginx \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy virtual env from builder
-COPY --from=builder /app/venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
-
-# Copy project files and build artifacts
+# Copy project files
 COPY . .
+
+# Copy virtual env and built frontend from builder
+COPY --from=builder /app/venv /app/venv
 COPY --from=builder /app/.web /app/.web
 
-# Port used by Reflex (Backend usually 8000, Frontend 3000)
-# In production mode, Reflex serves both.
-EXPOSE 8000
-EXPOSE 3000
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Set production environment
+# Setup env
+ENV PATH="/app/venv/bin:$PATH"
 ENV RA_ENV=production
 
-# Run the app
-# Use --env prod to run in production mode
-CMD ["reflex", "run", "--env", "prod", "--backend-only"]
+# Make start script executable
+RUN chmod +x start.sh
+
+# Run the app via startup script
+CMD ["./start.sh"]
