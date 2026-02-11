@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     curl \
     git \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js (Reflex requires it for the frontend)
