@@ -37,21 +37,19 @@ class AuthState(rx.State):
 
     def login(self):
         with rx.session() as session:
-            # Since emails are hashed (salted/randomized), we cannot use a deterministic lookup.
-            # We must load users and verify each one. 
-            # Consistent with UserState.add_user check.
+            # Get all active users
             all_users = session.exec(select(User).where(User.status == "active")).all()
             
             authenticated_user = None
             for user in all_users:
-                # Check email hash with legacy support
+                # Decrypt email and compare
                 email_match = False
                 try:
-                    if verify_password(self.email_field, user.mail):
+                    decrypted_email = decrypt_data(user.mail)
+                    if decrypted_email.lower() == self.email_field.lower():
                         email_match = True
                 except Exception:
-                    if self.email_field == user.mail:
-                        email_match = True
+                    pass
                 
                 if email_match:
                     # Check password hash
@@ -74,9 +72,9 @@ class AuthState(rx.State):
     def has_users(self) -> bool:
         try:
             with rx.session() as session:
-                # If the table doesn't exist, this will throw an exception
-                user = session.exec(select(User)).first()
-                return user is not None
+                # Check if there are any active users in the database
+                active_user = session.exec(select(User).where(User.status == "active")).first()
+                return active_user is not None
         except Exception:
             # During 'reflex export' or first run before 'reflex db init', 
             # we assume no users exist yet.

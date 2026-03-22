@@ -156,22 +156,21 @@ class UserState(BaseState):
             return rx.window_alert("Please fill all fields.")
         
         with rx.session() as session:
-            # Check uniqueness
+            # Check uniqueness - compare encrypted emails
             all_users = session.exec(select(User)).all()
-            from ..utils.security import verify_password
             for u in all_users:
                 try:
-                    if verify_password(self.email, u.mail):
-                         return rx.window_alert("Email already registered.")
-                except Exception:
-                    if self.email == u.mail:
+                    decrypted_email = decrypt_data(u.mail)
+                    if decrypted_email.lower() == self.email.lower():
                         return rx.window_alert("Email already registered.")
+                except Exception:
+                    pass
 
             # Create User
             created_by_id = self.current_user.id if self.current_user else 1 
             
             new_user = User(
-                mail=get_password_hash(self.email), 
+                mail=encrypt_data(self.email), 
                 password=get_password_hash(self.password),
                 name=encrypt_data(self.username),
                 role=self.role,
@@ -189,12 +188,12 @@ class UserState(BaseState):
             return rx.window_alert("Please fill all fields.")
 
         with rx.session() as session:
-            # Check if any user exists just in case
-            if session.exec(select(User)).first():
-                return rx.window_alert("Users already exist. Please login.")
+            # Check if any active user exists
+            if session.exec(select(User).where(User.status == "active")).first():
+                return rx.window_alert("An active user already exists. Please login.")
 
             new_user = User(
-                mail=get_password_hash(self.email),
+                mail=encrypt_data(self.email),
                 password=get_password_hash(self.password),
                 name=encrypt_data(self.username),
                 role="admin",
